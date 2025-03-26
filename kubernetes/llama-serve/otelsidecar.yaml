@@ -1,0 +1,28 @@
+apiVersion: opentelemetry.io/v1beta1
+kind: OpenTelemetryCollector
+metadata:
+  name: otelsidecar
+spec:
+  mode: sidecar
+  config:
+    receivers:
+      prometheus:
+        - job_name: 'vllm'
+          scrape_interval: 5s
+          static_configs:
+#            TODO use vLLM prometheus port
+            - targets: [ '0.0.0.0:8888' ]
+            - job_name: k8s
+              kubernetes_sd_configs:
+                - role: pod
+    processors:
+      cumulativetodelta: {}
+    exporters:
+      debug: {}
+
+    service:
+      pipelines:
+        metrics:
+          receivers: [prometheus]
+          processors: [cumulativetodelta]
+          exporters: [debug]

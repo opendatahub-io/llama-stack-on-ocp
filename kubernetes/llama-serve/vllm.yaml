@@ -21,6 +21,8 @@ spec:
       creationTimestamp: null
       labels:
         app: vllm
+      annotations:
+        sidecar.opentelemetry.io/inject: otelsidecar
     spec:
       containers:
       - args:
