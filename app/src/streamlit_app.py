@@ -1,5 +1,7 @@
 import streamlit as st
 from llama_stack_client import LlamaStackClient, Agent, APIConnectionError
+from llama_stack_client.lib.agents.react.agent import ReActAgent
+from llama_stack_client.lib.agents.react.tool_parser import ReActOutput
 from dotenv import load_dotenv
 import os
 import uuid
@@ -40,6 +42,14 @@ with st.sidebar:
     st.header("Model")
     model = st.selectbox(label="models", options=model_list,index=3, on_change=reset_agent)
     
+    # Add agent type selector
+    st.header("Agent Type")
+    agent_type = st.radio(
+        "Select Agent Type",
+        ["Regular", "ReAct"],
+        on_change=reset_agent
+    )
+    
     st.header("MCP Servers")
     toolgroup_selection = st.pills(label="Available Servers",options=tool_groups_list, selection_mode="multi",on_change=reset_agent)    
     
@@ -61,12 +71,26 @@ with st.sidebar:
 
 @st.cache_resource
 def create_agent():
-    return Agent(client,
-              model=model,
-              instructions="You are a helpful assistant. When you use a tool always respond with a summary of the result.",
-              tools=toolgroup_selection,
-              sampling_params={"max_tokens":1024},
-            )
+    if agent_type == "Regular":
+        return Agent(client,
+                  model=model,
+                  instructions="You are a helpful assistant. When you use a tool always respond with a summary of the result.",
+                  tools=toolgroup_selection,
+                  sampling_params={"max_tokens":4096},
+                )
+    else:
+        # Create ReAct agent
+        return ReActAgent(
+            client=client,
+            model=model,
+            tools=toolgroup_selection,
+            instructions="You are a helpful assistant that uses reasoning to solve problems step by step. Break down complex problems into simpler steps.",
+            response_format={
+                "type": "json_schema",
+                "json_schema": ReActOutput.model_json_schema(),
+            },
+            sampling_params={"max_tokens":4096},
+        )
 
 agent = create_agent()
 
@@ -116,7 +140,7 @@ if prompt := st.chat_input(placeholder=""):
                              yield f" 🛠 "            
             else:
                 yield f"Error occurred in the Llama Stack Cluster: {r}"
-                
+
     with st.chat_message("assistant"):
         response = st.write_stream(response_generator(turn_response))
     
