@@ -2,22 +2,14 @@ import os
 import json
 import logging
 import time
-import csv
-import pandas as pd
-import matplotlib.pyplot as plt
-import util
+import utils
 from typing import Dict, List, Any, Optional
-from pathlib import Path
-from datetime import datetime
 from dotenv import load_dotenv
 from llama_stack_client import LlamaStackClient
 from llama_stack_client.lib.agents.agent import Agent
-from llama_stack_client.lib.agents.event_logger import EventLogger
-
 
 # Load environment variables
 load_dotenv()
-
 
 # Server configurations
 def get_server_configs():
@@ -44,34 +36,6 @@ def get_server_configs():
             "toolgroup_id": "mcp::custom_tool"
         }
     }
-
-
-# Configure logging
-def setup_logger():
-    """Set up logging for tests."""
-    logger = logging.getLogger("mcp_test")
-    if logger.hasHandlers():
-        logger.handlers.clear()
-
-    logger.setLevel(logging.INFO)
-
-    # Console handler
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.INFO)
-    console_formatter = logging.Formatter('%(message)s')
-    console_handler.setFormatter(console_formatter)
-    logger.addHandler(console_handler)
-
-    # File handler
-    log_dir = Path("logs")
-    log_dir.mkdir(exist_ok=True)
-    file_handler = logging.FileHandler(log_dir / "mcp_test.log")
-    file_handler.setLevel(logging.INFO)
-    file_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    file_handler.setFormatter(file_formatter)
-    logger.addHandler(file_handler)
-
-    return logger
 
 
 def load_queries(file_path: str) -> List[Dict[str, str]]:
@@ -177,53 +141,6 @@ def execute_query(
     return turn_response
 
 
-def add_metric(
-    server_type: str,
-    model: str,
-    query_id: str,
-    status: str,
-    tool_call_match: bool,
-    inference_not_empty: bool,
-    error: str = ""
-):
-    """Add a metric record to the CSV file."""
-    # Ensure results directory exists
-    results_dir = Path("results")
-    results_dir.mkdir(exist_ok=True)
-
-    # Use a fixed CSV file name
-    metrics_file = results_dir / "metrics.csv"
-
-    # Create file with headers if it doesn't exist
-    if not metrics_file.exists():
-        with open(metrics_file, 'w', newline='') as f:
-            writer = csv.writer(f)
-            writer.writerow([
-                'timestamp',
-                'server_type',
-                'model',
-                'query_id',
-                'status',
-                'tool_call_match',
-                'inference_not_empty',
-                'error'
-            ])
-
-    # Append the new metric
-    with open(metrics_file, 'a', newline='') as f:
-        writer = csv.writer(f)
-        writer.writerow([
-            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            server_type,
-            model,
-            query_id,
-            status,
-            tool_call_match,
-            inference_not_empty,
-            error
-        ])
-
-
 def run_test(server_type, model, query_obj, llama_client, logger):
     """Run a single test for a specific server type, model, and query."""
     server_configs = get_server_configs()
@@ -282,7 +199,7 @@ def run_test(server_type, model, query_obj, llama_client, logger):
         logger.info(f"Query '{query_id}' succeeded with model {model} and the response \n {final_response}")
 
         # Record success metrics
-        add_metric(
+        utils.add_metric(
             server_type=server_type,
             model=model,
             query_id=query_id,
@@ -298,7 +215,7 @@ def run_test(server_type, model, query_obj, llama_client, logger):
         logger.error(f"Query '{query_id}' failed with model {model}: {error_msg}")
 
         # Record failure metrics
-        add_metric(
+        utils.add_metric(
             server_type=server_type,
             model=model,
             query_id=query_id,
@@ -314,7 +231,7 @@ def run_test(server_type, model, query_obj, llama_client, logger):
 def main():
     """Main function to run all tests."""
     # Set up logger
-    logger = setup_logger()
+    logger =utils.setup_logger()
 
     # Create client
     base_url = os.getenv('REMOTE_BASE_URL')
@@ -325,7 +242,11 @@ def main():
     llama_client = LlamaStackClient(base_url=base_url)
 
     # Define models to test
-    models = ["meta-llama/Llama-3.2-3B-Instruct", "ibm-granite/granite-3.2-8b-instruct"]
+    # make sure they are available in your LLS server
+    models = ["meta-llama/Llama-3.2-3B-Instruct",
+              "ibm-granite/granite-3.2-8b-instruct",]
+            #   "watt-ai/watt-tool-8B",
+            #   "meta-llama/Llama-3.3-70B-Instruct"]
 
     # Get server configurations
     server_configs = get_server_configs()
@@ -365,28 +286,10 @@ def main():
         success_rate = (successful_tests / total_tests) * 100
         logger.info(f"Success rate: {success_rate:.1f}%")
 
+    # Generate plots
+    logger.info(f"\n=== Generating plots ===")
+    utils.get_analysis_plots()
+
 
 if __name__ == "__main__":
     main()
-
-    # Load the CSV file into a DataFrame
-    file_path = './results/metrics.csv'
-    df = pd.read_csv(file_path)
-
-    # Plot the overall comparison of correct tool call
-    fig, ax = plt.subplots(figsize=(8, 6))
-    util.add_plot(fig, ax, df, column_name='tool_call_match', title='Overall comparison check of correct tool call')
-    plt.tight_layout()
-    plt.show()
-
-    # Plot comparison of correct tool call for each server type
-    util.subplots_comparison(df, column_name='tool_call_match')
-
-    # Plot the overall comparison of inference not empty
-    fig, ax = plt.subplots(figsize=(8, 6))
-    util.add_plot(fig, ax, df, column_name='inference_not_empty', title='Overall comparison check of inference not empty')
-    plt.tight_layout()
-    plt.show()
-
-    # Plot comparison of inference not empty for each server type
-    util.subplots_comparison(df, column_name='inference_not_empty')
