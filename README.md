@@ -10,7 +10,6 @@ Current Demos:
 
 * [RAG/Agentic](./demos/rag_agentic/)
 
-
 ## Example Architecture
 The below diagram is an example architecture for a secure Llama Stack based application deployed on OpenShift (OCP) using both MCP tools and and a [Milvus](https://milvus.io/) vectorDB for its agentic and RAG based workflows. This is the same architecture that has been implemented in the [RAG/Agentic](./demos/rag_agentic/) demos.
 

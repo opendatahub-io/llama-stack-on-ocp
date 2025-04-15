@@ -7,9 +7,6 @@ import os
 from dotenv import load_dotenv
 import json
 
-
-
-
 def test_mcp_server(file_path, REMOTE_MCP_URL, model, mcp_server_name):
 
     # Open the JSON file and load its content
@@ -89,12 +86,12 @@ if __name__ == "__main__":
     ocp_mcp_server_url = os.getenv('OCP_MCP_SERVER_URL')
     custom_mcp_server_url = os.getenv('CUSTOM_MCP_SERVER_URL')
     # Call the function with the file path
-    ansilbe_file_path = './queries/anisble_queries.json'
+    ansible_file_path = './queries/ansible_queries.json'
     custom_file_path = './queries/custom_queries.json'
     github_file_path = './queries/github_queries.json'
     openshift_file_path = './queries/ocp_queries.json'
 
-    test_mcp_server(ansilbe_file_path,ansible_mcp_server_url,"meta-llama/Llama-3.2-3B-Instruct","mcp::ansible")
+    test_mcp_server(ansible_file_path,ansible_mcp_server_url,"meta-llama/Llama-3.2-3B-Instruct","mcp::ansible")
     test_mcp_server(github_file_path,github_mcp_server_url,"ibm-granite/granite-3.2-8b-instruct","mcp::github")
     test_mcp_server(openshift_file_path,ocp_mcp_server_url,"ibm-granite/granite-3.2-8b-instruct","mcp::openshift")
     test_mcp_server(custom_file_path,custom_mcp_server_url,"meta-llama/Llama-3.2-3B-Instruct","mcp::custom_tool")
