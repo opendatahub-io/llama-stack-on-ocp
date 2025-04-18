@@ -42,6 +42,11 @@ spec:
         env:
           - name: LLAMA_STACK_ENDPOINT
             value: 'http://llamastack-server.llama-serve.svc.cluster.local:8321'
+          - name: TAVILY_SEARCH_API_KEY
+            valueFrom:
+              secretKeyRef:
+                name: tavily-search-key
+                key: tavily-search-api-key
       volumes:
       - name: proxy-tls
         secret:
