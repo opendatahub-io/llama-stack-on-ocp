@@ -66,7 +66,11 @@ authenticated stream to the in-cluster TempoStack. For in-cluster only, opentele
 metrics. Metrics are sent to the in-cluster user-workload-monitoring prometheus by creating podmonitors and/or servicemonitors.
 However, if exporting off-cluster to a 3rd party observability vendor, the collector is necessary for all signals,
 and can provide a single place with which to receive telemetry from various workloads and export as a single authenticated and
-secure OTLP stream.
+secure OTLP stream. OpenTelemetryCollector Sidecars and TargetAllocators are also explained below.
+
+> **📝 NOTE:** If you are only concerned with metrics, and only want to view them within the cluster with Grafana or
+> in the OpenShift console, you do not need to use the OpenTelemetryCollector. PodMonitors and ServiceMonitors
+> paired with OpenShift's user workload monitoring Prometheus instance is all that's necessary.
 
 #### Central OpenTelemetry Collector
 
@@ -77,17 +81,27 @@ To create a central opentelemetry-collector, update the
 oc apply --kustomize ./otel-collector -n observability-hub
 ```
 
-#### OpenTelemetryCollector Sidecars deployment
+#### OpenTelemetryCollector TargetAllocators
+
+You can add individual metrics endpoints to the central otel-collector in observability-hub, but
+a simpler way is to create a TargetAllocator to utilize already-existing PodMonitors and ServiceMonitors to configure
+an OpenTelemetryCollector's Prometheus receiver scrape targets. A TargetAllocator within an OpenTelemetryCollector will
+gather Prometheus scrape target endpoints from PodMonitors and ServiceMonitors.
+An example of an OpenTelemetryCollector with a TargetAllocator is
+[otel-collector target-allocator](./otel-collector/otel-collector-target-allocator.yaml). Note that when using TargetAllocators,
+the OpenTelemetryCollector must be set to `StatefulSet` mode.
+
+#### OpenTelemetryCollector Sidecars
 
 You can add individual metrics endpoints to the central otel-collector in observability-hub, but
 another way is to add otel-collector sidecar containers to individual deployments throughout the
 cluster. Paired with an annotation on the deployment, telemetry will be exported as configured.
 
-Any deployment with the `template.metadata.annotations` `sidecar.opentelemetry.io/inject: vllm-otelsidecar`
+For an example, any deployment with the `template.metadata.annotations` `sidecar.opentelemetry.io/inject: vllm-otelsidecar`
 will receive and export telemetry as configured in the
 [otel-collector-vllm-sidecar example](./otel-collector/otel-collector-vllm-sidecar.yaml).
 
-Any deployment with the `template.metadata.annotations` `sidecar.opentelemetry.io/inject: llamastack-otelsidecar`
+Similarly, any deployment with the `template.metadata.annotations` `sidecar.opentelemetry.io/inject: llamastack-otelsidecar`
 will receive and export telemetry as configured in the
 [otel-collector-llamstack-sidecar example](./otel-collector/otel-collector-llamastack-sidecar.yaml).
 
