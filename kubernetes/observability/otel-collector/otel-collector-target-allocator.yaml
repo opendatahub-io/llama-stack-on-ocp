@@ -1,0 +1,136 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: podmonitor-servicemonitor-lister
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  - nodes
+  - nodes/metrics
+  - services
+  - endpoints
+  - namespaces
+  - configmaps
+  verbs:
+  - get
+  - watch
+  - list
+- apiGroups:
+  - networking.k8s.io
+  resources:
+  - ingresses
+  verbs:
+  - get
+  - watch
+  - list
+- nonResourceURLs:
+  - /metrics
+  - /metrics/cadvisor
+  verbs:
+  - get
+- apiGroups:
+  - monitoring.coreos.com
+  resources:
+  - servicemonitors
+  - podmonitors
+  - scrapeconfigs
+  - probes
+  verbs:
+  - '*'
+- apiGroups:
+  - discovery.k8s.io
+  resources:
+    - endpointslices
+  verbs:
+    - get
+    - list
+    - watch
+- apiGroups:
+    - ""
+  resources:
+  - namespaces
+  verbs:
+    - get
+    - list
+    - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: prom-collector-podmonitor-servicemonitor-lister
+subjects:
+- kind: ServiceAccount
+  name: prom-collector
+  namespace: llama-serve
+roleRef:
+  kind: ClusterRole
+  name: podmonitor-servicemonitor-lister
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: prom-collector
+subjects:
+  - kind: ServiceAccount
+    name: prom-collector
+    namespace: llama-serve
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-monitoring-view
+---
+apiVersion: opentelemetry.io/v1beta1
+kind: OpenTelemetryCollector
+metadata:
+  name: prom
+  namespace: llama-serve
+spec:
+  managementState: managed
+  mode: statefulset
+  targetAllocator:
+    enabled: true
+    serviceAccount: prom-collector
+    prometheusCR:
+      enabled: true
+      podMonitorSelector:
+        # NOTE: better to match using labels.
+        matchExpressions:
+          - key: app
+            operator: In
+            values:
+              - safety
+              - llama32-3b
+              - granite-8b
+              - llama31-70b
+      serviceMonitorSelector:
+        matchLabels:
+          app: vllm
+  config:
+    exporters:
+      otlphttp:
+        # export to the central observability-hub otel-collector, then be
+        # exported to various backends from there (in-cluster, external 3rd party)
+        endpoint: 'http://otel-collector-collector.observability-hub.svc.cluster.local:4318'
+        tls:
+          insecure: true
+
+    receivers:
+      prometheus:
+        config:
+          scrape_configs:
+          - job_name: 'otel-ta-collector'
+            scrape_interval: 5s
+            static_configs:
+            - targets: [ '0.0.0.0:8888' ]
+    service:
+      telemetry:
+        metrics:
+          address: ":8888"
+      pipelines:
+        metrics:
+          receivers: [prometheus]
+          exporters: [otlp]
